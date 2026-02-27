@@ -1,0 +1,21 @@
+# MATLAB generated files
+*.asv
+*.m~
+*.mex*
+*.mlappinstall
+*.mlpkginstall
+*.slx.r*
+
+# Simulation outputs (regenerated on run)
+results/*.mat
+figures/*.png
+figures/*.fig
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+*.swp
+*.swo

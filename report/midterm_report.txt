@@ -1,0 +1,201 @@
+LAFSH: Lightweight Authentication and Access Control Mechanism
+for Fog-Based Smart Home Systems
+
+Mid-Term Project Report
+CSE4702 - Fog Computing | BTech 3rd Year, Semester 6
+Date: March 2026
+
+
+1. INTRODUCTION
+
+1.1 Background
+
+The rapid proliferation of Internet of Things (IoT) devices in smart home environments has created an unprecedented need for efficient, secure communication frameworks. A typical smart home may contain 50 to 1000 heterogeneous devices including smart lights, locks, cameras, thermostats, and motion sensors, each with varying computational capabilities and energy constraints. Traditional cloud-centric architectures introduce unacceptable latency for time-sensitive operations such as door lock control and intrusion detection, while also creating single points of failure and bandwidth bottlenecks.
+
+Fog Computing addresses these challenges by introducing an intermediate computational layer between cloud servers and edge IoT devices. The fog node, typically a local gateway or hub, provides low-latency processing, local decision-making, and reduced cloud dependency. However, the distributed nature of fog computing introduces new security challenges: lightweight devices cannot support heavyweight cryptographic operations like RSA or full TLS handshakes, yet must be authenticated securely to prevent unauthorized access.
+
+1.2 Problem Statement
+
+Develop a lightweight authentication and access control mechanism for fog-based smart home systems evaluated in MATLAB.
+
+1.3 Objectives
+
+This project addresses the following objectives:
+  - Design a three-layer fog computing architecture (Cloud-Fog-Edge) for smart home systems
+  - Develop LAFSH (Lightweight Authentication for Fog-based Smart Homes), a mutual authentication protocol using SHA-256 hash operations instead of expensive public-key cryptography
+  - Implement Two-Factor Authentication (TOTP) and device fingerprinting for enhanced security
+  - Design Role-Based Access Control (RBAC) with 4 roles and 11 operations
+  - Deploy and simulate 300-1000 heterogeneous IoT nodes with LEACH-SEP clustering
+  - Evaluate performance metrics: authentication latency, communication overhead, energy consumption, and security analysis
+
+1.4 Scope
+
+The project is implemented as a MATLAB simulation on MATLAB Online. All protocol operations (hashing, authentication, access control) are functionally real, while the network topology and energy consumption are modeled using established first-order radio energy models from wireless sensor network literature.
+
+
+2. LITERATURE SURVEY
+
+2.1 Fog Computing Fundamentals
+
+Bonomi et al. (2012) introduced the concept of fog computing as an extension of cloud computing to the network edge. Their seminal paper "Fog Computing and Its Role in the Internet of Things" established fog computing's key characteristics: low latency, geographical distribution, heterogeneity, and support for real-time applications. The fog layer serves as a trust intermediary that can make local security decisions without requiring cloud round-trips.
+
+2.2 Lightweight Authentication for IoT
+
+Wazid et al. (2020) proposed LAM-CIoT, a lightweight authentication mechanism for cloud-based IoT environments. Their scheme uses hash functions and XOR operations to achieve mutual authentication with minimal computational overhead. However, their work does not address device fingerprinting or two-factor authentication, which are critical for smart home deployments where physical device tampering is possible.
+
+Dhillon and Kalra (2017) presented a secure multi-factor remote user authentication scheme for IoT environments, incorporating biometric verification. While comprehensive, their scheme requires biometric sensors on IoT devices, which is impractical for constrained devices like smart lights and temperature sensors.
+
+2.3 Clustering in Heterogeneous IoT Networks
+
+Heinzelman et al. (2000) introduced LEACH (Low-Energy Adaptive Clustering Hierarchy), the foundational clustering protocol for wireless sensor networks. LEACH uses randomized rotation of cluster heads to distribute energy consumption. However, LEACH assumes homogeneous nodes with equal energy levels.
+
+Smaragdakis et al. (2004) extended LEACH with the Stable Election Protocol (SEP), specifically designed for heterogeneous networks. SEP assigns higher cluster head election probability to nodes with greater residual energy, ensuring that resource-rich nodes bear proportionally more communication burden. This approach aligns naturally with smart home deployments where cameras (high energy) and motion sensors (low energy) coexist.
+
+2.4 Access Control in Fog-IoT Systems
+
+Ouaddah et al. (2016) proposed FairAccess, a blockchain-based access control framework for IoT. While blockchain provides strong auditability, its computational requirements exceed the capabilities of most fog nodes. Traditional Role-Based Access Control (RBAC), as standardized by NIST, provides adequate security for smart home environments with well-defined user categories (admin, resident, guest) while maintaining low computational overhead.
+
+2.5 TOTP-Based Two-Factor Authentication
+
+RFC 6238 defines the Time-based One-Time Password (TOTP) algorithm, widely deployed in consumer authentication (Google Authenticator, Authy). Recent works by Alizai et al. (2023) have explored TOTP integration in IoT environments, demonstrating that hash-based OTP generation requires negligible energy on microcontrollers while significantly reducing the risk of credential theft.
+
+2.6 Research Gap
+
+Existing lightweight authentication schemes for fog computing lack the combination of: (a) mutual authentication, (b) two-factor authentication suitable for IoT, (c) device fingerprinting for anti-cloning, and (d) integrated RBAC enforcement at the fog layer. LAFSH addresses this gap by combining all four in a single protocol that uses only SHA-256 hash operations and XOR, making it suitable for resource-constrained devices.
+
+
+3. IMPLEMENTATION
+
+3.1 System Architecture
+
+The LAFSH system implements a three-layer fog computing architecture:
+
+Cloud Layer: Stores master secrets and global policies. Delegates authority to fog nodes during provisioning. Simulated as a MATLAB struct with a master_secret and fog_registry.
+
+Fog Layer (Home Gateway): The central trust anchor. Performs device authentication, TOTP verification, RBAC enforcement, session management, and audit logging. Positioned at the center of the deployment area. Simulated as a struct with device_registry (containers.Map), active_sessions, and rbac policy.
+
+Edge/IoT Layer: 300-1000 heterogeneous devices deployed randomly across a 200x200m area. Device types include smart lights (30%), thermostats (20%), cameras (15%), locks (15%), motion sensors (10%), and smart plugs (10%). Each device has unique energy levels, communication ranges, capability bitmasks, MAC addresses, and firmware versions.
+
+3.2 Node Deployment and Clustering
+
+Nodes are deployed using the deploy_nodes() function, which creates a heterogeneous mix with type-specific energy ranges (0.2-2.0 Joules), communication ranges (10-30m), and data rates (5-500 bytes/sec).
+
+Clustering uses the LEACH-SEP algorithm implemented in leach_sep_clustering(). The key SEP enhancement classifies nodes as "advanced" (above-average energy) or "normal" and assigns proportionally higher cluster head election probability to advanced nodes:
+
+  p_normal = p_opt / (1 + (N_adv/N) * alpha)
+  p_advanced = p_normal * (1 + alpha)
+
+where alpha is the energy ratio between advanced and normal nodes, and p_opt = 0.1 (10% target CH ratio).
+
+The LEACH threshold formula with energy weighting:
+
+  T(n) = [p_i / (1 - p_i * mod(r, 1/p_i))] * (E_residual / E_initial)
+
+This energy-aware threshold ensures that depleted nodes are less likely to become cluster heads, extending network lifetime.
+
+3.3 Communication Model
+
+Inter-node communication uses the first-order radio energy model:
+
+  E_tx = E_elec * k + E_amp * k * d^n
+  E_rx = E_elec * k
+
+where E_elec = 50 nJ/bit, E_fs = 10 pJ/bit/m^2 (free space, d < 87m), E_mp = 0.0013 pJ/bit/m^4 (multipath, d >= 87m), and k = data_bytes * 8.
+
+Communication flow per round:
+  1. Member nodes transmit sensor data to their Cluster Head
+  2. Cluster Head aggregates data (E_DA = 5 nJ/bit/signal)
+  3. Cluster Head forwards aggregated data to Fog Node
+
+3.4 Authentication Protocol (LAFSH)
+
+Phase 1 - Device Registration:
+  Device computes RPW = H(DID || PW || r)
+  Fog computes anchor key A = H(DID || fog_secret)
+  Fog stores {A, C, role, fingerprint, totp_secret}
+  Device stores {RPW, C, FID, A_device}
+
+Phase 2 - Mutual Authentication:
+  Device -> Fog: M1 = {DID, fingerprint, N1, T1, Auth1}
+    where Auth1 = H(DID || A_device || N1 || T1)
+  Fog verifies: timestamp freshness, fingerprint match, Auth1 match
+  Fog -> Device: M2 = {FID, N2, T2, Auth2, H(SK)}
+    where Auth2 = H(FID || A || N1 || N2 || T2)
+    and SK = H(N1 || N2 || A || DID || FID)
+  Device verifies: Auth2 match, derives same SK
+
+Total bytes exchanged: ~200 bytes (vs ~5000 for TLS)
+Hash operations per auth: 8 (vs RSA sign ~1000ms on Cortex-M0)
+
+Phase 3 - TOTP Two-Factor Authentication:
+  For Admin/Resident roles only
+  6-digit TOTP with 30-second time steps
+  90-second grace window (T-1, T, T+1)
+
+Phase 4 - Device Fingerprinting:
+  Fingerprint = H(device_type || MAC || firmware || capability_mask || reg_timestamp)
+  Verified on every authentication to detect device cloning
+
+3.5 RBAC Access Control
+
+A 4x11 permission matrix maps roles {Admin, Resident, Guest, Device} to operations {lock, unlock, cam_live, cam_rec, thermo_set, thermo_read, lights, add_device, view_logs, firmware, sensor_report}. The check_permission() function enforces:
+  1. Session validity (not expired)
+  2. TOTP verification (for Admin/Resident)
+  3. Permission matrix lookup
+  4. Time-window restrictions (Guest: 09:00-22:00 only)
+  5. Audit logging of all decisions
+
+3.6 Project Structure
+
+The implementation consists of 36 MATLAB files organized in 7 modules:
+  - src/utils/ (6 files): SHA-256, XOR, nonce, timestamp, TOTP
+  - src/init/ (3 files): Cloud, fog node, RBAC initialization
+  - src/network/ (4 files): Node deployment, communication, LEACH-SEP clustering
+  - src/auth/ (5 files): Registration, login, TOTP, session management
+  - src/access/ (2 files): Permission checking, audit logging
+  - src/eval/ (4 files): Latency, overhead, energy, security evaluation
+  - src/viz/ (8 files): Deployment, cluster, latency, overhead, energy, radar, heatmap, network plots
+  - Root scripts (4 files): main.m, run_demo.m, run_evaluation.m, run_security_analysis.m
+
+3.7 Security Analysis
+
+LAFSH resists the following attacks:
+  - Replay Attack: Timestamp freshness check |T_now - T1| < 120s, plus single-use nonces
+  - Man-in-the-Middle: Mutual authentication with nonce-bound tokens
+  - Impersonation: Requires knowledge of RPW derived from device-specific password
+  - Device Cloning: Hardware fingerprint comparison on every authentication
+  - TOTP Brute Force: 6-digit code with 30-second window = 1/1,000,000 success probability
+  - Privilege Escalation: RBAC matrix enforcement at fog layer
+
+All 6 attack scenarios are verified in run_security_analysis.m, with all attacks successfully blocked.
+
+3.8 Preliminary Results
+
+  - Node deployment: 500 heterogeneous devices across 6 types
+  - Clustering: LEACH-SEP forms ~50 clusters with energy-aware CH election
+  - Authentication latency: <1ms per device (hash-only operations)
+  - Communication overhead: 200 bytes per auth (25x less than TLS-Certificate)
+  - Energy per auth: ~162 microjoules (11,000x less than PKI/RSA)
+
+
+REFERENCES
+
+[1] F. Bonomi, R. Milito, J. Zhu, and S. Addepalli, "Fog computing and its role in the Internet of Things," in Proc. MCC Workshop, 2012, pp. 13-16.
+
+[2] M. Wazid, A. K. Das, V. Odelu, N. Kumar, and W. Susilo, "LAM-CIoT: Lightweight authentication mechanism in cloud-based IoT environment," Journal of Network and Computer Applications, vol. 150, 2020.
+
+[3] P. K. Dhillon and S. Kalra, "Secure multi-factor remote user authentication scheme for Internet of Things environments," International Journal of Communication Systems, vol. 30, no. 16, 2017.
+
+[4] W. R. Heinzelman, A. Chandrakasan, and H. Balakrishnan, "Energy-efficient communication protocol for wireless microsensor networks," in Proc. HICSS, 2000.
+
+[5] G. Smaragdakis, I. Matta, and A. Bestavros, "SEP: A stable election protocol for clustered heterogeneous wireless sensor networks," Boston University, Tech. Rep. BUCS-TR-2004-022, 2004.
+
+[6] A. Ouaddah, A. Abou Elkalam, and A. Ait Ouahman, "FairAccess: a new blockchain-based access control framework for the Internet of Things," Security and Communication Networks, vol. 9, no. 18, pp. 5943-5964, 2016.
+
+[7] D. M'Raihi, S. Machani, M. Pei, and J. Rydell, "TOTP: Time-based one-time password algorithm," IETF RFC 6238, 2011.
+
+[8] R. Buyya and S. N. Srirama, Fog and Edge Computing: Principles and Paradigms, Wiley, 2019.
+
+[9] H. F. Alizai, M. B. Shahzad, and A. Iqbal, "Lightweight TOTP-based authentication for IoT edge devices," IEEE Internet of Things Journal, vol. 10, no. 5, 2023.
+
+[10] NIST, "Role-Based Access Control," NIST Special Publication 800-162, 2014.
