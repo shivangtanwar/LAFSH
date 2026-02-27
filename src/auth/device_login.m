@@ -49,7 +49,7 @@ function [auth_result, device, fog] = device_login(device, fog, sim_time)
     % === FOG SIDE (Step F1-F6) ===
 
     % F1: Timestamp freshness check
-    current_time = sim_time;  % In real system, fog's own clock
+    current_time = get_timestamp();  % Fog always uses its own real clock
     time_diff = abs(current_time - str2double(M1.T1));
     if time_diff > fog.clock_delta
         auth_result.success = false;
