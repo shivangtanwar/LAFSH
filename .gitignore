@@ -11,6 +11,9 @@ results/*.mat
 figures/*.png
 figures/*.fig
 
+# Course materials
+FOG_2026_Course_Handout.pdf
+
 # OS files
 .DS_Store
 Thumbs.db
